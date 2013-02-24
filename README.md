@@ -14,7 +14,7 @@ gem install option_initializer
 require 'option_initializer'
 
 class Person
-  include OptionInitializable
+  include OptionInitializer
   option_initializer :id, :name, :age
 
   def initialize opts
