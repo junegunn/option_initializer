@@ -48,11 +48,11 @@ class TestOptionInitializer < MiniTest::Unit::TestCase
     assert_equal 1, o.a
     assert_equal 2, o.b
 
+    assert_instance_of MyClass::OptionInitializing, MyClass.aaa(1)
+
     assert_raises(ArgumentError) { MyClass.aaa(1, 2) }
     assert_raises(ArgumentError) { MyClass.aaa(1).new(1) }
     assert_raises(ArgumentError) { MyClass.aaa(1).new(1, 2, 3) }
-
-    assert_instance_of MyClass::OptionInitializing, MyClass.aaa(1)
   end
 
   def test_method_missing
