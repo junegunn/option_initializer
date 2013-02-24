@@ -29,6 +29,10 @@ class MyClass2
   def num_options bool
     @options.length if bool
   end
+
+  def echo a
+    yield a
+  end
 end
 
 class TestOptionInitializer < MiniTest::Unit::TestCase
@@ -57,6 +61,7 @@ class TestOptionInitializer < MiniTest::Unit::TestCase
 
   def test_method_missing
     assert_equal 2, MyClass2.aaa(1).bbb(2).num_options(true)
+    assert_equal 2, MyClass2.aaa(1).bbb(2).echo(1) { |a| a * 2 }
   end
 end
 

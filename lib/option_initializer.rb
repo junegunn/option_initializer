@@ -29,10 +29,10 @@ module OptionInitializer
         self.class.new @base, @options.merge(opts)
       end
 
-      def method_missing sym, *args
+      def method_missing sym, *args, &block
         # 1.8
         if @base.instance_methods.map(&:to_sym).include?(sym)
-          @base.new(@options.dup).send sym, *args
+          @base.new(@options.dup).send sym, *args, &block
         else
           raise NoMethodError, "undefined method `#{sym}' for #{self}"
         end
