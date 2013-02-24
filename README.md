@@ -1,6 +1,6 @@
 # option_initializer
 
-Provides syntactic sugar for constructing an object with method chaining.
+Provides syntactic sugar for constructing objects with method chaining.
 
 ## Installation
 
@@ -15,7 +15,7 @@ require 'option_initializer'
 
 class Person
   include OptionInitializable
-  option_initializer :name, :age, :id
+  option_initializer :id, :name, :age
 
   def initialize opts
     @options = opts
@@ -36,10 +36,3 @@ john = Person.new :id => 1000, :name => 'John Doe', :age => 19
 Person.name('John Doe').age(19).id(1000).say_hello
 ```
 
-## Contributing
-
-1. Fork it
-2. Create your feature branch (`git checkout -b my-new-feature`)
-3. Commit your changes (`git commit -am 'Add some feature'`)
-4. Push to the branch (`git push origin my-new-feature`)
-5. Create new Pull Request
