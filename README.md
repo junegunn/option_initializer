@@ -15,24 +15,24 @@ require 'option_initializer'
 
 class Person
   include OptionInitializer
-  option_initializer :id, :name, :age
+  option_initializer :id, :name, :age, :greetings
 
   def initialize opts
     @options = opts
   end
 
   def say_hello
-    puts "Hi, I'm #{@options[:name]}!"
+    puts @options[:greetings].call @options[:name]
   end
 end
 
 # Then
-john = Person.name('John Doe').age(19).id(1000).new
+john = Person.name('John Doe').age(19).greetings { |name| "Hi, I'm #{name}!" }.id(1000).new
 
 # becomes equivalent to
-john = Person.new :id => 1000, :name => 'John Doe', :age => 19
+john = Person.new :id => 1000, :name => 'John Doe', :age => 19, :greetings => proc { |name| "Hi, I'm #{name}!" }
 
 # Method call shortcut
-Person.name('John Doe').age(19).id(1000).say_hello
+Person.name('John Doe').age(19).greetings { |name| "Hi, I'm #{name}!" }.id(1000).say_hello
 ```
 

@@ -11,7 +11,7 @@ module OptionInitializer
         @options = options
       end
 
-      def new *args
+      def new *args, &block
         args = args.dup
         opts = @options
 
@@ -22,7 +22,7 @@ module OptionInitializer
           args << opts.dup
         end
 
-        @base.new(*args)
+        @base.new(*args, &block)
       end
 
       def merge opts
@@ -37,9 +37,14 @@ module OptionInitializer
           raise NoMethodError, "undefined method `#{sym}' for #{self}"
         end
       end
-    } unless base.constants.include?(:OptionInitializing)
+    } unless base.constants.map(&:to_sym).include?(:OptionInitializing)
 
     base.class_eval do
+      class << self
+        if method_defined?(:option_initializer)
+          undef_method(:option_initializer)
+        end
+      end
       def base.option_initializer *syms
         oi = self.const_get(:OptionInitializing)
 
@@ -48,8 +53,19 @@ module OptionInitializer
           self.class_eval do
             # define_singleton_method not available on 1.8
             singleton = class << self; self end
-            singleton.send :define_method, sym do |v|
-              oi.new self, sym => v
+            singleton.send :undef_method, sym if singleton.method_defined?(sym)
+            singleton.send :define_method, sym do |*v, &b|
+              if b && v.empty?
+                oi.new self, sym => b
+              elsif b && !v.empty?
+                raise ArgumentError,
+                  "wrong number of arguments (#{v.length} for 0 when block given)"
+              elsif v.length == 1
+                oi.new self, sym => v.first
+              else
+                raise ArgumentError,
+                  "wrong number of arguments (#{v.length} for 1)"
+              end
             end
           end
         end
@@ -57,8 +73,19 @@ module OptionInitializer
         # Instance methods
         oi.class_eval do
           syms.each do |sym|
-            define_method(sym) do |v|
-              merge(sym => v)
+            undef_method(sym) if method_defined?(sym)
+            define_method(sym) do |*v, &b|
+              if b && v.empty?
+                merge(sym => b)
+              elsif b && !v.empty?
+                raise ArgumentError,
+                  "wrong number of arguments (#{v.length} for 0 when block given)"
+              elsif v.length == 1
+                merge(sym => v.first)
+              else
+                raise ArgumentError,
+                  "wrong number of arguments (#{v.length} for 1)"
+              end
             end
           end
         end
