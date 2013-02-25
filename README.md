@@ -27,12 +27,27 @@ class Person
 end
 
 # Then
-john = Person.name('John Doe').age(19).greetings { |name| "Hi, I'm #{name}!" }.id(1000).new
+john = Person.
+         name('John Doe').
+         age(19).
+         greetings { |name| "Hi, I'm #{name}!" }.
+         id(1000).
+         new
 
 # becomes equivalent to
-john = Person.new :id => 1000, :name => 'John Doe', :age => 19, :greetings => proc { |name| "Hi, I'm #{name}!" }
+john = Person.new(
+         :id => 1000,
+         :name => 'John Doe',
+         :age => 19,
+         :greetings => proc { |name| "Hi, I'm #{name}!" }
+       )
 
 # Method call shortcut
-Person.name('John Doe').age(19).greetings { |name| "Hi, I'm #{name}!" }.id(1000).say_hello
+Person.
+  name('John Doe').
+  age(19).
+  greetings { |name| "Hi, I'm #{name}!" }.
+  id(1000).
+  say_hello
 ```
 
