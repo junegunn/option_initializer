@@ -19,9 +19,9 @@ class Person
   option_validator do |k, v|
     case k
     when :age
-      raise ArgumentError, "invalid age" if age < 0
+      raise ArgumentError, "invalid age" if v < 0
     when :name
-      raise ArgumentError, "invalid name" if name.empty?
+      raise ArgumentError, "invalid name" if v.empty?
     end
   end
 
