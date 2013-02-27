@@ -25,14 +25,26 @@ class MyClass2
   include OptionInitializer
   include OptionInitializer
 
+  @@validate_count = 0
+
+  def self.reset_count
+    @@validate_count = 0
+  end
+
+  def self.count
+    @@validate_count
+  end
+
   option_initializer :aaa, :bbb, :ccc
   option_validator do |k, v|
+    @@validate_count += 1
     case k
     when :aaa
       raise ArgumentError if v == 0
     end
   end
   option_validator do |k, v|
+    @@validate_count += 1
     case k
     when :aaa
       raise ArgumentError if v < 0
@@ -107,6 +119,26 @@ class TestOptionInitializer < MiniTest::Unit::TestCase
     assert_raises(ArgumentError) { MyClass2.aaa(1).aaa(1).new(:aaa => -2) }
     assert_raises(ArgumentError) { MyClass2.aaa(1).aaa(1).new(:aaa => 0) }
     assert_raises(ArgumentError) { MyClass2.new(:aaa => 0) }
+
+    MyClass2.reset_count
+    MyClass2.aaa(1)
+    assert_equal 2, MyClass2.count
+
+    MyClass2.reset_count
+    MyClass2.aaa(1).bbb(2)
+    assert_equal 2 + 2, MyClass2.count
+
+    MyClass2.reset_count
+    MyClass2.aaa(1).bbb(2).new(:aaa => 3)
+    assert_equal 2 + 2 + 2, MyClass2.count
+
+    MyClass2.reset_count
+    MyClass2.aaa(1).bbb(2).new
+    assert_equal 2 + 2, MyClass2.count
+
+    MyClass2.reset_count
+    MyClass2.new :aaa => 1, :bbb => 2
+    assert_equal 4, MyClass2.count
   end
 
   def test_readme

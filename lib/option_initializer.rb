@@ -19,8 +19,8 @@ module OptionInitializer
 
       const_set :VALIDATORS, []
 
-      def initialize base, options
-        validate options
+      def initialize base, options, need_validation
+        validate options if need_validation
         @base    = base
         @options = options
       end
@@ -50,7 +50,7 @@ module OptionInitializer
 
       def merge opts
         validate opts
-        self.class.new @base, @options.merge(opts)
+        self.class.new @base, @options.merge(opts), false
       end
 
       def validate hash
@@ -96,12 +96,12 @@ module OptionInitializer
             singleton.send :undef_method, sym if singleton.method_defined?(sym)
             singleton.send :define_method, sym do |*v, &b|
               if b && v.empty?
-                oi.new self, sym => b
+                oi.new self, {sym => b}, true
               elsif b && !v.empty?
                 raise ArgumentError,
                   "wrong number of arguments (#{v.length} for 0 when block given)"
               elsif v.length == 1
-                oi.new self, sym => v.first
+                oi.new self, {sym => v.first}, true
               else
                 raise ArgumentError,
                   "wrong number of arguments (#{v.length} for 1)"
