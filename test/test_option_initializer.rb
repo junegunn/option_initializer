@@ -26,6 +26,18 @@ class MyClass2
   include OptionInitializer
 
   option_initializer :aaa, :bbb, :ccc
+  option_validator do |k, v|
+    case k
+    when :aaa
+      raise ArgumentError if v == 0
+    end
+  end
+  option_validator do |k, v|
+    case k
+    when :aaa
+      raise ArgumentError if v < 0
+    end
+  end
 
   def initialize options
     @options = options
@@ -85,6 +97,14 @@ class TestOptionInitializer < MiniTest::Unit::TestCase
   def test_method_missing
     assert_equal 2, MyClass2.aaa(1).bbb(2).num_options(true)
     assert_equal 2, MyClass2.aaa(1).bbb(2).echo(1) { |a| a * 2 }
+  end
+
+  def test_validator
+    assert_raises(ArgumentError) { MyClass2.aaa(0) }
+    assert_raises(ArgumentError) { MyClass2.aaa(-1) }
+    assert_raises(ArgumentError) { MyClass2.aaa(1).aaa(-1) }
+    assert_raises(ArgumentError) { MyClass2.aaa(1).aaa(1).new(:aaa => -2) }
+    assert_raises(ArgumentError) { MyClass2.aaa(1).aaa(1).new(:aaa => -2) }
   end
 
   def test_readme

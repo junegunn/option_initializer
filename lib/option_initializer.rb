@@ -6,7 +6,10 @@ module OptionInitializer
       attr_reader :options
       alias to_h options
 
+      const_set :VALIDATORS, []
+
       def initialize base, options
+        validate options
         @base    = base
         @options = options
       end
@@ -17,6 +20,7 @@ module OptionInitializer
 
         # Convention. Deal with it.
         if args.last.is_a?(Hash)
+          validate args.last
           args[-1] = opts.merge(args.last)
         else
           args << opts.dup
@@ -26,7 +30,16 @@ module OptionInitializer
       end
 
       def merge opts
+        validate opts
         self.class.new @base, @options.merge(opts)
+      end
+
+      def validate hash
+        self.class.const_get(:VALIDATORS).each do |validator|
+          hash.each do |k, v|
+            validator.call k, v
+          end
+        end
       end
 
       def method_missing sym, *args, &block
@@ -41,10 +54,18 @@ module OptionInitializer
 
     base.class_eval do
       class << self
-        if method_defined?(:option_initializer)
-          undef_method(:option_initializer)
+        [:option_initializer, :option_validator].each do |m|
+          undef_method(m) if method_defined?(m)
         end
       end
+
+      def base.option_validator &block
+        raise ArgumentError, "block must be given" unless block
+        raise ArgumentError, "invalid arity (expected: 2)" unless block.arity == 2
+        oi = self.const_get(:OptionInitializing)
+        oi.const_get(:VALIDATORS).push block
+      end
+
       def base.option_initializer *syms
         oi = self.const_get(:OptionInitializing)
 
