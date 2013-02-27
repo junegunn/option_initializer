@@ -26,6 +26,7 @@ class Person
   end
 
   def initialize opts
+    validate_options opts
     @options = opts
   end
 

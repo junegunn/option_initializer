@@ -40,6 +40,7 @@ class MyClass2
   end
 
   def initialize options
+    validate_options options
     @options = options
   end
 
@@ -104,7 +105,8 @@ class TestOptionInitializer < MiniTest::Unit::TestCase
     assert_raises(ArgumentError) { MyClass2.aaa(-1) }
     assert_raises(ArgumentError) { MyClass2.aaa(1).aaa(-1) }
     assert_raises(ArgumentError) { MyClass2.aaa(1).aaa(1).new(:aaa => -2) }
-    assert_raises(ArgumentError) { MyClass2.aaa(1).aaa(1).new(:aaa => -2) }
+    assert_raises(ArgumentError) { MyClass2.aaa(1).aaa(1).new(:aaa => 0) }
+    assert_raises(ArgumentError) { MyClass2.new(:aaa => 0) }
   end
 
   def test_readme

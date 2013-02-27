@@ -1,6 +1,17 @@
 require "option_initializer/version"
 
 module OptionInitializer
+  def validate_options options
+    return if options.respond_to?(:option_validated?)
+    validators = self.class.const_get(:OptionInitializing).const_get(:VALIDATORS)
+    validators.each do |validator|
+      options.each do |k, v|
+        validator.call k, v
+      end
+    end
+    options
+  end
+
   def self.included base
     base.const_set :OptionInitializing, Class.new {
       attr_reader :options
@@ -21,10 +32,18 @@ module OptionInitializer
         # Convention. Deal with it.
         if args.last.is_a?(Hash)
           validate args.last
-          args[-1] = opts.merge(args.last)
+          opts = opts.merge(args.last)
+          args.pop
         else
-          args << opts.dup
+          opts = opts.dup
         end
+
+        opts.instance_eval do
+          def option_validated?
+            true
+          end
+        end
+        args << opts
 
         @base.new(*args, &block)
       end
@@ -45,7 +64,7 @@ module OptionInitializer
       def method_missing sym, *args, &block
         # 1.8
         if @base.instance_methods.map(&:to_sym).include?(sym)
-          @base.new(@options.dup).send sym, *args, &block
+          new.send sym, *args, &block
         else
           raise NoMethodError, "undefined method `#{sym}' for #{self}"
         end
