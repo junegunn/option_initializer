@@ -139,6 +139,8 @@ class TestOptionInitializer < MiniTest::Unit::TestCase
     MyClass2.reset_count
     MyClass2.new :aaa => 1, :bbb => 2
     assert_equal 4, MyClass2.count
+
+    assert_raises(TypeError) { MyClass2.new 'str' }
   end
 
   def test_readme

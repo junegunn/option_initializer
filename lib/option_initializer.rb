@@ -2,6 +2,9 @@ require "option_initializer/version"
 
 module OptionInitializer
   def validate_options options
+    raise TypeError,
+      "wrong argument type #{options.class} (expected Hash)" unless
+        options.is_a?(Hash)
     return if options.respond_to?(:option_validated?)
     validators = self.class.const_get(:OptionInitializing).const_get(:VALIDATORS)
     validators.each do |validator|
