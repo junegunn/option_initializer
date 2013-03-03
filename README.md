@@ -52,6 +52,7 @@ john = Person.new(
        )
 
 # Method call shortcut
+# - To disable this use `option_initializer!` instead
 Person.
   name('John Doe').
   age(19).

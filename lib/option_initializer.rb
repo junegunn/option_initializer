@@ -1,6 +1,66 @@
 require "option_initializer/version"
 
 module OptionInitializer
+  class OptionInitializingTemplate
+    attr_reader :options
+    alias to_h options
+
+    const_set :VALIDATORS, []
+
+    def initialize base, options, need_validation
+      validate options if need_validation
+      @base    = base
+      @options = options
+    end
+
+    def new *args, &block
+      args = args.dup
+      opts = @options
+
+      # Convention. Deal with it.
+      if args.last.is_a?(Hash)
+        validate args.last
+        opts = opts.merge(args.last)
+        args.pop
+      else
+        opts = opts.dup
+      end
+
+      opts.instance_eval do
+        def option_validated?
+          true
+        end
+      end
+      args << opts
+
+      @base.new(*args, &block)
+    end
+
+    def merge opts
+      validate opts
+      self.class.new @base, @options.merge(opts), false
+    end
+
+    def validate hash
+      self.class.const_get(:VALIDATORS).each do |validator|
+        hash.each do |k, v|
+          validator.call k, v
+        end
+      end
+    end
+  end
+
+  module MethodCallShortcut
+    def method_missing sym, *args, &block
+      # 1.8
+      if @base.instance_methods.map(&:to_sym).include?(sym)
+        new.send sym, *args, &block
+      else
+        raise NoMethodError, "undefined method `#{sym}' for #{self}"
+      end
+    end
+  end
+
   def validate_options options
     raise TypeError,
       "wrong argument type #{options.class} (expected Hash)" unless
@@ -16,67 +76,13 @@ module OptionInitializer
   end
 
   def self.included base
-    base.const_set :OptionInitializing, Class.new {
-      attr_reader :options
-      alias to_h options
-
-      const_set :VALIDATORS, []
-
-      def initialize base, options, need_validation
-        validate options if need_validation
-        @base    = base
-        @options = options
-      end
-
-      def new *args, &block
-        args = args.dup
-        opts = @options
-
-        # Convention. Deal with it.
-        if args.last.is_a?(Hash)
-          validate args.last
-          opts = opts.merge(args.last)
-          args.pop
-        else
-          opts = opts.dup
-        end
-
-        opts.instance_eval do
-          def option_validated?
-            true
-          end
-        end
-        args << opts
-
-        @base.new(*args, &block)
-      end
-
-      def merge opts
-        validate opts
-        self.class.new @base, @options.merge(opts), false
-      end
-
-      def validate hash
-        self.class.const_get(:VALIDATORS).each do |validator|
-          hash.each do |k, v|
-            validator.call k, v
-          end
-        end
-      end
-
-      def method_missing sym, *args, &block
-        # 1.8
-        if @base.instance_methods.map(&:to_sym).include?(sym)
-          new.send sym, *args, &block
-        else
-          raise NoMethodError, "undefined method `#{sym}' for #{self}"
-        end
-      end
-    } unless base.constants.map(&:to_sym).include?(:OptionInitializing)
+    unless base.constants.map(&:to_sym).include?(:OptionInitializing)
+      base.const_set :OptionInitializing, OptionInitializingTemplate.dup
+    end
 
     base.class_eval do
       class << self
-        [:option_initializer, :option_validator].each do |m|
+        [:option_initializer, :option_initializer!, :option_validator].each do |m|
           undef_method(m) if method_defined?(m)
         end
       end
@@ -88,7 +94,7 @@ module OptionInitializer
         oi.const_get(:VALIDATORS).push block
       end
 
-      def base.option_initializer *syms
+      def base.option_initializer! *syms
         oi = self.const_get(:OptionInitializing)
 
         # Class methods
@@ -133,7 +139,14 @@ module OptionInitializer
           end
         end
       end
+
+      def base.option_initializer *syms
+        option_initializer!(*syms)
+        oi = self.const_get(:OptionInitializing)
+        oi.class_eval do
+          include OptionInitializer::MethodCallShortcut
+        end
+      end
     end
   end
 end
-

@@ -35,7 +35,8 @@ class MyClass2
     @@validate_count
   end
 
-  option_initializer :aaa, :bbb, :ccc
+  option_initializer! :aaa
+  option_initializer  :bbb, :ccc
   option_validator do |k, v|
     @@validate_count += 1
     case k
@@ -58,6 +59,19 @@ class MyClass2
 
   def num_options bool
     @options.length if bool
+  end
+
+  def echo a
+    yield a
+  end
+end
+
+class MyClass3
+  include OptionInitializer
+  option_initializer! :aaa, :bbb, :ccc
+
+  def initialize options
+    validate_options options
   end
 
   def echo a
@@ -110,6 +124,10 @@ class TestOptionInitializer < MiniTest::Unit::TestCase
   def test_method_missing
     assert_equal 2, MyClass2.aaa(1).bbb(2).num_options(true)
     assert_equal 2, MyClass2.aaa(1).bbb(2).echo(1) { |a| a * 2 }
+
+    assert_raises(NoMethodError) do
+      MyClass3.aaa(1).bbb(2).echo(1) { |a| a * 2 }
+    end
   end
 
   def test_validator
