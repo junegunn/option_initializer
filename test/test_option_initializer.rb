@@ -68,7 +68,7 @@ end
 
 class MyClass3
   include OptionInitializer
-  option_initializer! :aaa, :bbb, :ccc
+  option_initializer :aaa, :bbb, :ccc
 
   def initialize options
     validate_options options
@@ -83,6 +83,7 @@ end
 class Person
   include OptionInitializer
   option_initializer :id, :name, :age, :greetings
+  option_initializer!
 
   def initialize opts
     @options = opts

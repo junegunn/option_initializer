@@ -94,7 +94,7 @@ module OptionInitializer
         oi.const_get(:VALIDATORS).push block
       end
 
-      def base.option_initializer! *syms
+      def base.option_initializer *syms
         oi = self.const_get(:OptionInitializing)
 
         # Class methods
@@ -140,8 +140,8 @@ module OptionInitializer
         end
       end
 
-      def base.option_initializer *syms
-        option_initializer!(*syms)
+      def base.option_initializer! *syms
+        option_initializer(*syms)
         oi = self.const_get(:OptionInitializing)
         oi.class_eval do
           include OptionInitializer::MethodCallShortcut
