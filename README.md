@@ -15,7 +15,7 @@ require 'option_initializer'
 
 class Person
   include OptionInitializer
-  option_initializer :id, :name, :greetings, :birthday => 1..3
+  option_initializer :id, :name, :greetings => :block, :birthday => 1..3
   option_validator do |k, v|
     case k
     when :name

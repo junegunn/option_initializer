@@ -103,7 +103,7 @@ module OptionInitializer
             arr << [sym.to_sym, 1]
           when Hash
             arr.concat sym.map { |k, v|
-              unless (v.is_a?(Fixnum) && v > 0) || (v.is_a?(Range) && v.begin > 0)
+              unless (v.is_a?(Fixnum) && v > 0) || (v.is_a?(Range) && v.begin > 0) || v == :block
                 raise ArgumentError, "invalid number of arguments specified for #{k}"
               end
               [k.to_sym, v]
@@ -133,30 +133,38 @@ module OptionInitializer
             sym, nargs = pair
             undef_method(sym) if method_defined?(sym)
             define_method(sym) do |*v, &b|
-              # More than 1 args
-              if nargs.is_a?(Range) || nargs > 1
+              case nargs
+              when :block
                 if b
-                  raise ArgumentError,
-                    "wrong number of arguments (block not expected)"
+                  if v.empty?
+                    merge(sym => b)
+                  else
+                    raise ArgumentError, "only block expected"
+                  end
+                else
+                  raise ArgumentError, "block expected but not given"
+                end
+              when 1
+                if b && v.empty?
+                  merge(sym => b)
+                elsif b && !v.empty?
+                  raise ArgumentError, "wrong number of arguments (#{v.length} for 0 when block given)"
+                elsif v.length == 1
+                  merge(sym => v.first)
+                else
+                  raise ArgumentError, "wrong number of arguments (#{v.length} for 1)"
+                end
+              when Range, Fixnum
+                if b
+                  raise ArgumentError, "block not expected"
                 elsif (nargs.is_a?(Range) && !nargs.include?(v.length)) ||
                       (nargs.is_a?(Fixnum) && nargs != v.length)
-                  raise ArgumentError,
-                    "wrong number of arguments (#{v.length} for #{nargs})"
+                  raise ArgumentError, "wrong number of arguments (#{v.length} for #{nargs})"
                 else
                   merge(sym => v)
                 end
               else
-                if b && v.empty?
-                  merge(sym => b)
-                elsif b && !v.empty?
-                  raise ArgumentError,
-                    "wrong number of arguments (#{v.length} for 0 when block given)"
-                elsif v.length == 1
-                  merge(sym => v.first)
-                else
-                  raise ArgumentError,
-                    "wrong number of arguments (#{v.length} for 1)"
-                end
+                raise ArgumentError, "invalid option specification"
               end
             end
           end

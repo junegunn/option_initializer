@@ -85,7 +85,8 @@ class MyClass4
   include OptionInitializer
   option_initializer :two => 2,
                      :two_or_three => 2..3,
-                     :yet_two_or_three => 2...4
+                     :yet_two_or_three => 2...4,
+                     :b => :block
 
   def initialize options
     validate_options @options = options
@@ -186,13 +187,19 @@ class TestOptionInitializer < MiniTest::Unit::TestCase
   end
 
   def test_varargs
-    obj = MyClass4.two(1, 2).two_or_three(2, 3, 4).yet_two_or_three(3, 4, 5).new
+    obj = MyClass4.two(1, 2).two_or_three(2, 3, 4).yet_two_or_three(3, 4, 5).b { :r }.new
     assert_equal [1, 2], obj.options[:two]
     assert_equal [2, 3, 4], obj.options[:two_or_three]
     assert_equal [3, 4, 5], obj.options[:yet_two_or_three]
+    assert_equal :r, obj.options[:b].call
     assert_raises(ArgumentError) { MyClass4.two(1) }
+    assert_raises(ArgumentError) { MyClass4.two(1, 2) { } }
+    assert_raises(ArgumentError) { MyClass4.two { } }
     assert_raises(ArgumentError) { MyClass4.two_or_three(1) }
     assert_raises(ArgumentError) { MyClass4.yet_two_or_three(1, 2, 3, 4) }
+    assert_raises(ArgumentError) { MyClass4.yet_two_or_three {} }
+    assert_raises(ArgumentError) { MyClass4.b(1) }
+    assert_raises(ArgumentError) { MyClass4.b(1) {} }
   end
 
   def test_varargs_def
@@ -208,6 +215,7 @@ class TestOptionInitializer < MiniTest::Unit::TestCase
     assert_raises(ArgumentError) { MyClass5.class_eval { option_initializer :b => 0..3 } }
     assert_raises(ArgumentError) { MyClass5.class_eval { option_initializer 3.14 } }
     assert_raises(ArgumentError) { MyClass5.class_eval { option_initializer 3.14 => nil } }
+    assert_raises(ArgumentError) { MyClass5.class_eval { option_initializer :b => :block? } }
   end
 
   def test_readme
