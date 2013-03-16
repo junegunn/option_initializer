@@ -79,13 +79,36 @@ class MyClass3
   end
 end
 
+class MyClass4
+  attr_reader :options
+
+  include OptionInitializer
+  option_initializer :two => 2,
+                     :two_or_three => 2..3,
+                     :yet_two_or_three => 2...4
+
+  def initialize options
+    validate_options @options = options
+  end
+end
+
+class MyClass5
+  include OptionInitializer
+end
+
 # Excerpt from README
 class Person
   include OptionInitializer
-  option_initializer :id, :name, :age, :greetings
-  option_initializer!
+  option_initializer! :id, :name, :greetings, :birthday => 1..3
+  option_validator do |k, v|
+    case k
+    when :name
+      raise ArgumentError, "invalid name" if v.empty?
+    end
+  end
 
   def initialize opts
+    validate_options opts
     @options = opts
   end
 
@@ -162,10 +185,37 @@ class TestOptionInitializer < MiniTest::Unit::TestCase
     assert_raises(TypeError) { MyClass2.new 'str' }
   end
 
+  def test_varargs
+    obj = MyClass4.two(1, 2).two_or_three(2, 3, 4).yet_two_or_three(3, 4, 5).new
+    assert_equal [1, 2], obj.options[:two]
+    assert_equal [2, 3, 4], obj.options[:two_or_three]
+    assert_equal [3, 4, 5], obj.options[:yet_two_or_three]
+    assert_raises(ArgumentError) { MyClass4.two(1) }
+    assert_raises(ArgumentError) { MyClass4.two_or_three(1) }
+    assert_raises(ArgumentError) { MyClass4.yet_two_or_three(1, 2, 3, 4) }
+  end
+
+  def test_varargs_def
+    assert_raises(NoMethodError) { MyClass5.a(1) }
+    MyClass5.class_eval do
+      option_initializer :a => 1...4
+    end
+    MyClass5.a(1)
+
+    assert_raises(ArgumentError) { MyClass5.class_eval { option_initializer :b => 0 } }
+    assert_raises(ArgumentError) { MyClass5.class_eval { option_initializer :b => 3.14 } }
+    assert_raises(ArgumentError) { MyClass5.class_eval { option_initializer :b => [1] } }
+    assert_raises(ArgumentError) { MyClass5.class_eval { option_initializer :b => 0..3 } }
+  end
+
   def test_readme
-    john = Person.name('John Doe').age(19).greetings { |name| "Hi, I'm #{name}!" }.id(1000).new
-    john = Person.new :id => 1000, :name => 'John Doe', :age => 19, :greetings => proc { |name| "Hi, I'm #{name}!" }
-    Person.name('John Doe').age(19).greetings { |name| "Hi, I'm #{name}!" }.id(1000).say_hello
+    john = Person.name('John Doe').birthday(1990, 1, 1).
+                  greetings { |name| "Hi, I'm #{name}!" }.id(1000).new
+    john = Person.new :id => 1000, :name => 'John Doe',
+                      :birthday => [1990, 1, 1],
+                      :greetings => proc { |name| "Hi, I'm #{name}!" }
+    Person.name('John Doe').birthday(1990, 1, 1).
+           greetings { |name| "Hi, I'm #{name}!" }.id(1000).say_hello
   end
 end
 

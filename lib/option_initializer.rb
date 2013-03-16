@@ -97,43 +97,64 @@ module OptionInitializer
       def base.option_initializer *syms
         oi = self.const_get(:OptionInitializing)
 
+        pairs = syms.inject([]) { |arr, sym|
+          case sym
+          when Symbol, String
+            arr << [sym.to_sym, 1]
+          when Hash
+            arr.concat sym.map { |k, v|
+              unless (v.is_a?(Fixnum) && v > 0) || (v.is_a?(Range) && v.begin > 0)
+                raise ArgumentError, "invalid number of arguments specified for #{k}"
+              end
+              [k.to_sym, v]
+            }
+          end
+        }
+
         # Class methods
-        syms.each do |sym|
+        pairs.each do |pair|
+          sym = pair.first
+
           self.class_eval do
             # define_singleton_method not available on 1.8
             singleton = class << self; self end
             singleton.send :undef_method, sym if singleton.method_defined?(sym)
             singleton.send :define_method, sym do |*v, &b|
-              if b && v.empty?
-                oi.new self, {sym => b}, true
-              elsif b && !v.empty?
-                raise ArgumentError,
-                  "wrong number of arguments (#{v.length} for 0 when block given)"
-              elsif v.length == 1
-                oi.new self, {sym => v.first}, true
-              else
-                raise ArgumentError,
-                  "wrong number of arguments (#{v.length} for 1)"
-              end
+              oi.new(self, {}, false).send(sym, *v, &b)
             end
           end
         end
 
         # Instance methods
         oi.class_eval do
-          syms.each do |sym|
+          pairs.each do |pair|
+            sym, nargs = pair
             undef_method(sym) if method_defined?(sym)
             define_method(sym) do |*v, &b|
-              if b && v.empty?
-                merge(sym => b)
-              elsif b && !v.empty?
-                raise ArgumentError,
-                  "wrong number of arguments (#{v.length} for 0 when block given)"
-              elsif v.length == 1
-                merge(sym => v.first)
+              # More than 1 args
+              if nargs.is_a?(Range) || nargs > 1
+                if b
+                  raise ArgumentError,
+                    "wrong number of arguments (block not expected)"
+                elsif (nargs.is_a?(Range) && !nargs.include?(v.length)) ||
+                      (nargs.is_a?(Fixnum) && nargs != v.length)
+                  raise ArgumentError,
+                    "wrong number of arguments (#{v.length} for #{nargs})"
+                else
+                  merge(sym => v)
+                end
               else
-                raise ArgumentError,
-                  "wrong number of arguments (#{v.length} for 1)"
+                if b && v.empty?
+                  merge(sym => b)
+                elsif b && !v.empty?
+                  raise ArgumentError,
+                    "wrong number of arguments (#{v.length} for 0 when block given)"
+                elsif v.length == 1
+                  merge(sym => v.first)
+                else
+                  raise ArgumentError,
+                    "wrong number of arguments (#{v.length} for 1)"
+                end
               end
             end
           end

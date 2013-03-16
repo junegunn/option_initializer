@@ -15,11 +15,9 @@ require 'option_initializer'
 
 class Person
   include OptionInitializer
-  option_initializer :id, :name, :age, :greetings
+  option_initializer :id, :name, :greetings, :birthday => 1..3
   option_validator do |k, v|
     case k
-    when :age
-      raise ArgumentError, "invalid age" if v < 0
     when :name
       raise ArgumentError, "invalid name" if v.empty?
     end
@@ -38,7 +36,7 @@ end
 # Then
 john = Person.
          name('John Doe').
-         age(19).
+         birthday(1990, 1, 1).
          greetings { |name| "Hi, I'm #{name}!" }.
          id(1000).
          new
@@ -47,7 +45,7 @@ john = Person.
 john = Person.new(
          :id => 1000,
          :name => 'John Doe',
-         :age => 19,
+         :birthday => [1990, 1, 1],
          :greetings => proc { |name| "Hi, I'm #{name}!" }
        )
 
