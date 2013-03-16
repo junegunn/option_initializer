@@ -206,6 +206,8 @@ class TestOptionInitializer < MiniTest::Unit::TestCase
     assert_raises(ArgumentError) { MyClass5.class_eval { option_initializer :b => 3.14 } }
     assert_raises(ArgumentError) { MyClass5.class_eval { option_initializer :b => [1] } }
     assert_raises(ArgumentError) { MyClass5.class_eval { option_initializer :b => 0..3 } }
+    assert_raises(ArgumentError) { MyClass5.class_eval { option_initializer 3.14 } }
+    assert_raises(ArgumentError) { MyClass5.class_eval { option_initializer 3.14 => nil } }
   end
 
   def test_readme

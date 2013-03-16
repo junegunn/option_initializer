@@ -108,6 +108,8 @@ module OptionInitializer
               end
               [k.to_sym, v]
             }
+          else
+            raise ArgumentError, "invalid option specification"
           end
         }
 
