@@ -120,11 +120,11 @@ module OptionInitializer
               when Set
                 raise ArgumentError, "empty set of values specified for #{k}" if v.length == 0
               when Array
-                raise ArgumentError, "invalid option definition: #{v}" unless v.all? { |e| e.is_a?(Class) || e.is_a?(Set) }
+                raise ArgumentError, "invalid option definition: `#{v}'" unless v.all? { |e| e.is_a?(Class) || e.is_a?(Set) }
               when Class, :*, :&
                 # noop
               else
-                raise ArgumentError, "invalid option definition: #{v}"
+                raise ArgumentError, "invalid option definition: `#{v}'"
               end
               [k.to_sym, v]
             }
@@ -172,7 +172,7 @@ module OptionInitializer
           when Set
             vals[sym] = proc { |v|
               if !nargs.include?(v)
-                raise ArgumentError, "invalid option value: #{v} (expected one of #{nargs.to_a.inspect})"
+                raise ArgumentError, "invalid option value: `#{v}' (expected one of #{nargs.to_a.inspect})"
               end
             }
           when Array
@@ -189,7 +189,7 @@ module OptionInitializer
                     raise TypeError, "wrong argument type #{e.class} (expected #{c})" unless e.is_a?(c)
                   when Set
                     unless c.include?(e)
-                      raise ArgumentError, "invalid option value: #{e} (expected one of #{c.to_a.inspect})"
+                      raise ArgumentError, "invalid option value: `#{e}' (expected one of #{c.to_a.inspect})"
                     end
                   end
                 end

@@ -148,6 +148,16 @@ class Person
 end
 
 class TestOptionInitializer < MiniTest::Unit::TestCase
+  def assert_raises x, &b
+    begin
+      b.call
+      assert false
+    rescue Exception => e
+      puts "#{e.class}: #{e}"
+      assert e.is_a?(x)
+    end
+  end
+
   def test_oi
     o = MyClass.aaa(1).bbb(2).ddd { 4 }.ccc(3).new(1, 2)
     assert_equal 1, o.options[:aaa]
