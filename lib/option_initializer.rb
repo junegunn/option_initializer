@@ -44,8 +44,8 @@ module OptionInitializer
         self.class.const_get(s)
       }
       hash.each do |k, v|
-        avals[k] && avals[k].call(v)
-        vals[k] && vals[k].call(v)
+        avals[k]  && avals[k].call(v)
+        vals[k]   && vals[k].call(v)
         vals[nil] && vals[nil].call(k, v)
       end
     end
@@ -66,13 +66,13 @@ module OptionInitializer
     raise TypeError,
       "wrong argument type #{options.class} (expected Hash)" unless
         options.is_a?(Hash)
-    return if options.respond_to?(:option_validated?)
+    return if options.respond_to?(:option_validated?) && options.option_validated?
     avals, vals = [:ARG_VALIDATORS, :VALIDATORS].map { |s|
       self.class.const_get(:OptionInitializing).const_get(s)
     }
     options.each do |k, v|
-      avals[k] && avals[k].call(v)
-      vals[k] && vals[k].call(v)
+      avals[k]  && avals[k].call(v)
+      vals[k]   && vals[k].call(v)
       vals[nil] && vals[nil].call(k, v)
     end
     options
@@ -138,12 +138,18 @@ module OptionInitializer
           when :&
             vals[sym] = proc { |v|
               if !v.is_a?(Proc)
-                raise TypeError, "wrong argument type #{v.class.to_s} (expected Proc)"
+                raise TypeError, "wrong argument type #{v.class} (expected Proc)"
               end
             }
-          when 1, nil
+          when 1
             # good to go
             vals.delete sym
+          when :*
+            vals[sym] = proc { |v|
+              if !v.is_a?(Array)
+                raise ArgumentError, "wrong number of arguments (1 for #{nargs})"
+              end
+            }
           when Fixnum
             vals[sym] = proc { |v|
               if !v.is_a?(Array)
@@ -158,6 +164,22 @@ module OptionInitializer
                 raise ArgumentError, "wrong number of arguments (1 for #{nargs})"
               elsif !nargs.include?(v.length)
                 raise ArgumentError, "wrong number of arguments (#{v.length} for #{nargs})"
+              end
+            }
+          when Array
+            vals[sym] = proc { |v|
+              if !v.is_a?(Array)
+                raise ArgumentError, "wrong number of arguments (1 for #{nargs.length})"
+              elsif nargs.length != v.length
+                raise ArgumentError, "wrong number of arguments (#{v.length} for #{nargs.length})"
+              elsif !v.zip(nargs).all? { |ec| e, c = ec; e.is_a?(c) }
+                raise TypeError, "wrong argument type #{v.map(&:class).inspect} (expected #{nargs.inspect})"
+              end
+            }
+          when Class
+            vals[sym] = proc { |v|
+              if !v.is_a?(nargs)
+                raise TypeError, "wrong argument type #{v.class} (expected #{nargs})"
               end
             }
           end
@@ -184,53 +206,23 @@ module OptionInitializer
             undef_method(sym) if method_defined?(sym)
             define_method(sym) do |*v, &b|
               if nargs == :&
-                if b
-                  if v.empty?
-                    merge(sym => b)
-                  else
-                    raise ArgumentError, "only block expected"
-                  end
+                if v.empty?
+                  merge(sym => b)
                 else
-                  raise TypeError, "wrong argument type #{v.first.class.to_s} (expected Proc)"
+                  raise ArgumentError, "wrong number of arguments (#{v.length} for 0)"
                 end
+              elsif b
+                raise ArgumentError, "block not expected"
               else
-                raise ArgumentError, "block not expected" if b
-
                 case nargs
-                when :*
-                  merge(sym => v)
-                when 1
+                when 1, Class
                   if v.length == 1
                     merge(sym => v.first)
                   else
                     raise ArgumentError, "wrong number of arguments (#{v.length} for 1)"
                   end
-                when Range, Fixnum
-                  if (nargs.is_a?(Range) && !nargs.include?(v.length)) ||
-                     (nargs.is_a?(Fixnum) && nargs != v.length)
-                    raise ArgumentError, "wrong number of arguments (#{v.length} for #{nargs})"
-                  else
-                    merge(sym => v)
-                  end
-                when Array
-                  if v.length != nargs.length
-                    raise ArgumentError, "wrong number of arguments (#{v.length} for #{nargs.length})"
-                  elsif !v.zip(nargs).all? { |ec| e, c = ec; e.is_a? c }
-                    raise TypeError, "wrong argument type #{v.map(&:class)} (expected #{nargs})"
-                  else
-                    merge(sym => v)
-                  end
-                when Class
-                  if v.length != 1
-                    raise ArgumentError, "wrong number of arguments (#{v.length} for 1)"
-                  elsif v.first.is_a?(nargs)
-                    merge(sym => v.first)
-                  else
-                    raise TypeError, "wrong argument type #{v.first.class.to_s} (expected #{nargs.to_s})"
-                  end
                 else
-                  # Should not happen
-                  raise ArgumentError, "invalid option specification"
+                  merge(sym => v)
                 end
               end
             end
