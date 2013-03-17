@@ -38,18 +38,22 @@ class MyClass2
   option_initializer! :aaa
   option_initializer  :bbb, :ccc
   option_validator do |k, v|
-    @@validate_count += 1
+    @@validate_count += 100
     case k
     when :aaa
-      raise ArgumentError if v == 0
+      raise ArgumentError
     end
   end
   option_validator do |k, v|
     @@validate_count += 1
     case k
     when :aaa
-      raise ArgumentError if v < 0
+      raise ArgumentError if v == 0
     end
+  end
+  option_validator :aaa do |v|
+    @@validate_count += 1
+    raise ArgumentError if v < 0
   end
 
   def initialize options
@@ -101,11 +105,8 @@ end
 class Person
   include OptionInitializer
   option_initializer! :id, :name, :greetings, :birthday => 1..3
-  option_validator do |k, v|
-    case k
-    when :name
-      raise ArgumentError, "invalid name" if v.empty?
-    end
+  option_validator :name do |v|
+    raise ArgumentError, "invalid name" if v.empty?
   end
 
   def initialize opts
@@ -149,6 +150,7 @@ class TestOptionInitializer < MiniTest::Unit::TestCase
   def test_method_missing
     assert_equal 2, MyClass2.aaa(1).bbb(2).num_options(true)
     assert_equal 2, MyClass2.aaa(1).bbb(2).echo(1) { |a| a * 2 }
+    assert_raises(NoMethodError) { MyClass2.aaa(1).bbb(2).echo? }
 
     assert_raises(NoMethodError) do
       MyClass3.aaa(1).bbb(2).echo(1) { |a| a * 2 }
@@ -169,21 +171,30 @@ class TestOptionInitializer < MiniTest::Unit::TestCase
 
     MyClass2.reset_count
     MyClass2.aaa(1).bbb(2)
-    assert_equal 2 + 2, MyClass2.count
+    assert_equal 2 + 1, MyClass2.count
 
     MyClass2.reset_count
     MyClass2.aaa(1).bbb(2).new(:aaa => 3)
-    assert_equal 2 + 2 + 2, MyClass2.count
+    assert_equal 2 + 1 + 2, MyClass2.count
 
     MyClass2.reset_count
     MyClass2.aaa(1).bbb(2).new
-    assert_equal 2 + 2, MyClass2.count
+    assert_equal 2 + 1, MyClass2.count
 
     MyClass2.reset_count
     MyClass2.new :aaa => 1, :bbb => 2
-    assert_equal 4, MyClass2.count
+    assert_equal 2 + 1, MyClass2.count
 
     assert_raises(TypeError) { MyClass2.new 'str' }
+  end
+
+  def assert_raises x, &b
+    begin
+      b.call
+    rescue Exception => e
+      puts "#{e.class.to_s}: #{e}"
+      assert e.is_a?(x)
+    end
   end
 
   def test_varargs
@@ -198,8 +209,23 @@ class TestOptionInitializer < MiniTest::Unit::TestCase
     assert_raises(ArgumentError) { MyClass4.two_or_three(1) }
     assert_raises(ArgumentError) { MyClass4.yet_two_or_three(1, 2, 3, 4) }
     assert_raises(ArgumentError) { MyClass4.yet_two_or_three {} }
-    assert_raises(ArgumentError) { MyClass4.b(1) }
+    assert_raises(TypeError) { MyClass4.b(1) }
     assert_raises(ArgumentError) { MyClass4.b(1) {} }
+    assert_raises(ArgumentError) { MyClass4.b(1) {} }
+
+    MyClass4.class_eval do
+      option_initializer :b
+    end
+    MyClass4.b {}
+    MyClass4.b(5)
+    assert_raises(ArgumentError) { MyClass4.b {} }
+  end
+
+  def test_varargs_validate_options
+    assert_raises(TypeError) { MyClass4.new(:b => 1) }
+    assert_raises(ArgumentError) { MyClass4.new(:two_or_three => 1) }
+    assert_raises(ArgumentError) { MyClass4.new(:two_or_three => [1]) }
+    assert_raises(ArgumentError) { MyClass4.new(:yet_two_or_three => [1]) }
   end
 
   def test_varargs_def
@@ -216,6 +242,13 @@ class TestOptionInitializer < MiniTest::Unit::TestCase
     assert_raises(ArgumentError) { MyClass5.class_eval { option_initializer 3.14 } }
     assert_raises(ArgumentError) { MyClass5.class_eval { option_initializer 3.14 => nil } }
     assert_raises(ArgumentError) { MyClass5.class_eval { option_initializer :b => :block? } }
+  end
+
+  def test_validator_block_arity
+    MyClass5.class_eval { option_validator { |k, v| } }
+    assert_raises(ArgumentError) { MyClass5.class_eval { option_validator { |v| } } }
+    MyClass5.class_eval { option_validator :aaa do |v| end }
+    assert_raises(ArgumentError) { MyClass5.class_eval { option_validator :aaa do |k, v| end } }
   end
 
   def test_readme

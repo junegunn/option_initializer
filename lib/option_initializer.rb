@@ -5,8 +5,6 @@ module OptionInitializer
     attr_reader :options
     alias to_h options
 
-    const_set :VALIDATORS, []
-
     def initialize base, options, need_validation
       validate options if need_validation
       @base    = base
@@ -42,10 +40,13 @@ module OptionInitializer
     end
 
     def validate hash
-      self.class.const_get(:VALIDATORS).each do |validator|
-        hash.each do |k, v|
-          validator.call k, v
-        end
+      avals, vals = [:ARG_VALIDATORS, :VALIDATORS].map { |s|
+        self.class.const_get(s)
+      }
+      hash.each do |k, v|
+        avals[k] && avals[k].call(v)
+        vals[k] && vals[k].call(v)
+        vals[nil] && vals[nil].call(k, v)
       end
     end
   end
@@ -66,18 +67,24 @@ module OptionInitializer
       "wrong argument type #{options.class} (expected Hash)" unless
         options.is_a?(Hash)
     return if options.respond_to?(:option_validated?)
-    validators = self.class.const_get(:OptionInitializing).const_get(:VALIDATORS)
-    validators.each do |validator|
-      options.each do |k, v|
-        validator.call k, v
-      end
+    avals, vals = [:ARG_VALIDATORS, :VALIDATORS].map { |s|
+      self.class.const_get(:OptionInitializing).const_get(s)
+    }
+    options.each do |k, v|
+      avals[k] && avals[k].call(v)
+      vals[k] && vals[k].call(v)
+      vals[nil] && vals[nil].call(k, v)
     end
     options
   end
 
   def self.included base
     unless base.constants.map(&:to_sym).include?(:OptionInitializing)
-      base.const_set :OptionInitializing, OptionInitializingTemplate.dup
+      base.const_set :OptionInitializing, oi = OptionInitializingTemplate.dup
+      oi.class_eval do
+        const_set :VALIDATORS, {}
+        const_set :ARG_VALIDATORS, {}
+      end
     end
 
     base.class_eval do
@@ -87,11 +94,12 @@ module OptionInitializer
         end
       end
 
-      def base.option_validator &block
+      def base.option_validator sym = nil, &block
         raise ArgumentError, "block must be given" unless block
-        raise ArgumentError, "invalid arity (expected: 2)" unless block.arity == 2
+        a = sym ? 1 : 2
+        raise ArgumentError, "invalid arity (expected: #{a})" unless block.arity == a
         oi = self.const_get(:OptionInitializing)
-        oi.const_get(:VALIDATORS).push block
+        oi.const_get(:VALIDATORS)[sym] = block
       end
 
       def base.option_initializer *syms
@@ -112,6 +120,39 @@ module OptionInitializer
             raise ArgumentError, "invalid option specification"
           end
         }
+
+        # Setup validators
+        vals = oi.const_get(:ARG_VALIDATORS)
+        pairs.each do |pair|
+          sym, nargs = pair
+          case nargs
+          when :block
+            vals[sym] = proc { |v|
+              if !v.is_a?(Proc)
+                raise TypeError, "wrong argument type #{v.class.to_s} (expected Proc)"
+              end
+            }
+          when 1
+            # good to go
+            vals.delete sym
+          when Fixnum
+            vals[sym] = proc { |v|
+              if !v.is_a?(Array)
+                raise ArgumentError, "wrong number of arguments (1 for #{nargs})"
+              elsif nargs != v.length
+                raise ArgumentError, "wrong number of arguments (#{v.length} for #{nargs})"
+              end
+            }
+          when Range
+            vals[sym] = proc { |v|
+              if !v.is_a?(Array)
+                raise ArgumentError, "wrong number of arguments (1 for #{nargs})"
+              elsif !nargs.include?(v.length)
+                raise ArgumentError, "wrong number of arguments (#{v.length} for #{nargs})"
+              end
+            }
+          end
+        end
 
         # Class methods
         pairs.each do |pair|
@@ -142,7 +183,7 @@ module OptionInitializer
                     raise ArgumentError, "only block expected"
                   end
                 else
-                  raise ArgumentError, "block expected but not given"
+                  raise TypeError, "wrong argument type #{v.first.class.to_s} (expected Proc)"
                 end
               when 1
                 if b && v.empty?

@@ -15,12 +15,11 @@ require 'option_initializer'
 
 class Person
   include OptionInitializer
+
   option_initializer :id, :name, :greetings => :block, :birthday => 1..3
-  option_validator do |k, v|
-    case k
-    when :name
-      raise ArgumentError, "invalid name" if v.empty?
-    end
+
+  option_validator :name do |v|
+    raise ArgumentError, "invalid name" if v.empty?
   end
 
   def initialize opts
