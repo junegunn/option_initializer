@@ -1,4 +1,5 @@
-require "option_initializer/version"
+require 'option_initializer/version'
+require 'set'
 
 module OptionInitializer
   class OptionInitializingTemplate
@@ -116,8 +117,10 @@ module OptionInitializer
                 raise ArgumentError, "invalid number of arguments specified for #{k}" if v <= 0
               when Range
                 raise ArgumentError, "invalid number of arguments specified for #{k}" if v.begin < 0
+              when Set
+                raise ArgumentError, "empty set of values specified for #{k}" if v.length == 0
               when Array
-                raise ArgumentError, "invalid option definition: #{v}" unless v.all? { |e| e.is_a?(Class) }
+                raise ArgumentError, "invalid option definition: #{v}" unless v.all? { |e| e.is_a?(Class) || e.is_a?(Set) }
               when Class, :*, :&
                 # noop
               else
@@ -166,14 +169,30 @@ module OptionInitializer
                 raise ArgumentError, "wrong number of arguments (#{v.length} for #{nargs})"
               end
             }
+          when Set
+            vals[sym] = proc { |v|
+              if !nargs.include?(v)
+                raise ArgumentError, "invalid option value: #{v} (expected one of #{nargs.to_a.inspect})"
+              end
+            }
           when Array
             vals[sym] = proc { |v|
               if !v.is_a?(Array)
                 raise ArgumentError, "wrong number of arguments (1 for #{nargs.length})"
               elsif nargs.length != v.length
                 raise ArgumentError, "wrong number of arguments (#{v.length} for #{nargs.length})"
-              elsif !v.zip(nargs).all? { |ec| e, c = ec; e.is_a?(c) }
-                raise TypeError, "wrong argument type #{v.map(&:class).inspect} (expected #{nargs.inspect})"
+              else
+                v.zip(nargs).each do |ec|
+                  e, c = ec
+                  case c
+                  when Class
+                    raise TypeError, "wrong argument type #{e.class} (expected #{c})" unless e.is_a?(c)
+                  when Set
+                    unless c.include?(e)
+                      raise ArgumentError, "invalid option value: #{e} (expected one of #{c.to_a.inspect})"
+                    end
+                  end
+                end
               end
             }
           when Class
@@ -215,7 +234,7 @@ module OptionInitializer
                 raise ArgumentError, "block not expected"
               else
                 case nargs
-                when 1, Class
+                when 1, Class, Set
                   if v.length == 1
                     merge(sym => v.first)
                   else

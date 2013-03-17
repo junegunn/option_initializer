@@ -16,7 +16,11 @@ require 'option_initializer'
 class Person
   include OptionInitializer
 
-  option_initializer :id, :name => String, :greetings => :&, :birthday => 1..3
+  option_initializer :id,
+                     :name => String,
+                     :greetings => :&,
+                     :birthday => 1..3,
+                     :sex => Set[:male, :female]
 
   option_validator :name do |v|
     raise ArgumentError, "invalid name" if v.empty?
@@ -38,6 +42,7 @@ john = Person.
          birthday(1990, 1, 1).
          greetings { |name| "Hi, I'm #{name}!" }.
          id(1000).
+         sex(:male).
          new
 
 # becomes equivalent to
@@ -45,6 +50,7 @@ john = Person.new(
          :id => 1000,
          :name => 'John Doe',
          :birthday => [1990, 1, 1],
+         :sex => :male,
          :greetings => proc { |name| "Hi, I'm #{name}!" }
        )
 
@@ -73,7 +79,8 @@ class MyClass
                      :d => :*,                       # Any number of objects of any type
                      :e => :&,                       # Block
                      :f => Fixnum,                   # Single Fixnum object
-                     :g => [Fixnum, String, Symbol]  # Fixnum, String, and Symbol
+                     :g => [Fixnum, String, Symbol], # Fixnum, String, and Symbol
+                     :h => Set[true, false]          # Value must be true or false
 
   # Validator for :f
   option_validator :f do |v|
@@ -87,7 +94,6 @@ class MyClass
       # ...
     when :b
       # ...
-    else
     end
   end
 
@@ -98,11 +104,12 @@ class MyClass
 end
 
 object = MyClass.a(o).
-                 b(o1, o2),
+                 b(o1, o2).
                  c(o1, o2, o3).
                  d(o1, o2).
                  e { |o| o ** o }.
                  f(f).
                  g(f, str, sym).
+                 h(true).
                  new(a1, a2)
 ```

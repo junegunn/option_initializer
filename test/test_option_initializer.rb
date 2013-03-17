@@ -5,6 +5,7 @@ require 'simplecov'
 SimpleCov.start
 require 'minitest/autorun'
 require 'option_initializer'
+require 'set'
 
 class MyClass
   include OptionInitializer
@@ -110,7 +111,9 @@ class MyClassWithTypes
                      :b => String,
                      :c => Numeric,
                      :d => Array,
-                     :e => [Fixnum, String, Array]
+                     :e => [Fixnum, String, Array],
+                     :f => Set[true, false],
+                     :g => [ Set[true, false], Set[1, 2, 3] ]
 
   attr_reader :options
   def initialize options
@@ -123,7 +126,12 @@ end
 class Person
   include OptionInitializer
 
-  option_initializer! :id, :name => String, :greetings => :&, :birthday => 1..3
+  option_initializer :id,
+                     :name => String,
+                     :greetings => :&,
+                     :birthday => 1..3,
+                     :sex => Set[:male, :female]
+  option_initializer!
 
   option_validator :name do |v|
     raise ArgumentError, "invalid name" if v.empty?
@@ -315,11 +323,25 @@ class TestOptionInitializer < MiniTest::Unit::TestCase
     end
   end
 
+  def test_set
+    opts = MyClassWithTypes.f(true).g(false, 2).options
+    assert_equal true, opts[:f]
+    assert_equal [false, 2], opts[:g]
+
+    assert_raises(ArgumentError) { MyClassWithTypes.f(5) }
+    assert_raises(ArgumentError) { MyClassWithTypes.new(:f => 5) }
+    assert_raises(ArgumentError) { MyClassWithTypes.g(false, 10) }
+    assert_raises(ArgumentError) { MyClassWithTypes.g(nil, 2) }
+
+    assert_raises(ArgumentError) { MyClassWithTypes.class_eval { option_initializer :set => Set[] } }
+  end
+
   def test_readme
-    john = Person.name('John Doe').birthday(1990, 1, 1).
+    john = Person.name('John Doe').birthday(1990, 1, 1).sex(:male).
                   greetings { |name| "Hi, I'm #{name}!" }.id(1000).new
     john = Person.new :id => 1000, :name => 'John Doe',
                       :birthday => [1990, 1, 1],
+                      :sex => :male,
                       :greetings => proc { |name| "Hi, I'm #{name}!" }
     Person.name('John Doe').birthday(1990, 1, 1).
            greetings { |name| "Hi, I'm #{name}!" }.id(1000).say_hello
