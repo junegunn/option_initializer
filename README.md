@@ -73,14 +73,15 @@ Person.
 class MyClass
   include OptionInitializer
 
-  option_initializer :a,                             # Single object of any type
-                     :b => 2,                        # Two objects of any type
-                     :c => 1..3,                     # 1, 2, or 3 objects of any type
-                     :d => :*,                       # Any number of objects of any type
-                     :e => :&,                       # Block
-                     :f => Fixnum,                   # Single Fixnum object
-                     :g => [Fixnum, String, Symbol], # Fixnum, String, and Symbol
-                     :h => Set[true, false]          # Value must be true or false
+  option_initializer :a,                              # Single object of any type
+                     :b => 2,                         # Two objects of any type
+                     :c => 1..3,                      # 1, 2, or 3 objects of any type
+                     :d => :*,                        # Any number of objects of any type
+                     :e => :&,                        # Block
+                     :f => Fixnum,                    # Single Fixnum object
+                     :g => [Fixnum, String, Symbol],  # Fixnum, String, and Symbol
+                     :h => Set[true, false],          # Value must be either true or false
+                     :i => [Fixnum, Set[true, false]] # Fixnum and boolean
 
   # Validator for :f
   option_validator :f do |v|
@@ -111,5 +112,6 @@ object = MyClass.a(o).
                  f(f).
                  g(f, str, sym).
                  h(true).
+                 i(100, false).
                  new(a1, a2)
 ```
