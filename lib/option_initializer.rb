@@ -111,13 +111,22 @@ module OptionInitializer
             arr << [sym.to_sym, 1]
           when Hash
             arr.concat sym.map { |k, v|
-              unless (v.is_a?(Fixnum) && v > 0) || (v.is_a?(Range) && v.begin > 0) || v == :block
-                raise ArgumentError, "invalid number of arguments specified for #{k}"
+              case v
+              when Fixnum
+                raise ArgumentError, "invalid number of arguments specified for #{k}" if v <= 0
+              when Range
+                raise ArgumentError, "invalid number of arguments specified for #{k}" if v.begin < 0
+              when Array
+                raise ArgumentError, "invalid option definition: #{v}" unless v.all? { |e| e.is_a?(Class) }
+              when Class, :*, :&
+                # noop
+              else
+                raise ArgumentError, "invalid option definition: #{v}"
               end
               [k.to_sym, v]
             }
           else
-            raise ArgumentError, "invalid option specification"
+            raise ArgumentError, "invalid option definition"
           end
         }
 
@@ -126,7 +135,7 @@ module OptionInitializer
         pairs.each do |pair|
           sym, nargs = pair
           case nargs
-          when :block
+          when :&
             vals[sym] = proc { |v|
               if !v.is_a?(Proc)
                 raise TypeError, "wrong argument type #{v.class.to_s} (expected Proc)"
@@ -174,8 +183,7 @@ module OptionInitializer
             sym, nargs = pair
             undef_method(sym) if method_defined?(sym)
             define_method(sym) do |*v, &b|
-              case nargs
-              when :block
+              if nargs == :&
                 if b
                   if v.empty?
                     merge(sym => b)
@@ -185,25 +193,45 @@ module OptionInitializer
                 else
                   raise TypeError, "wrong argument type #{v.first.class.to_s} (expected Proc)"
                 end
-              when 1
-                if b
-                  raise ArgumentError, "block not expected"
-                elsif v.length == 1
-                  merge(sym => v.first)
-                else
-                  raise ArgumentError, "wrong number of arguments (#{v.length} for 1)"
-                end
-              when Range, Fixnum
-                if b
-                  raise ArgumentError, "block not expected"
-                elsif (nargs.is_a?(Range) && !nargs.include?(v.length)) ||
-                      (nargs.is_a?(Fixnum) && nargs != v.length)
-                  raise ArgumentError, "wrong number of arguments (#{v.length} for #{nargs})"
-                else
-                  merge(sym => v)
-                end
               else
-                raise ArgumentError, "invalid option specification"
+                raise ArgumentError, "block not expected" if b
+
+                case nargs
+                when :*
+                  merge(sym => v)
+                when 1
+                  if v.length == 1
+                    merge(sym => v.first)
+                  else
+                    raise ArgumentError, "wrong number of arguments (#{v.length} for 1)"
+                  end
+                when Range, Fixnum
+                  if (nargs.is_a?(Range) && !nargs.include?(v.length)) ||
+                     (nargs.is_a?(Fixnum) && nargs != v.length)
+                    raise ArgumentError, "wrong number of arguments (#{v.length} for #{nargs})"
+                  else
+                    merge(sym => v)
+                  end
+                when Array
+                  if v.length != nargs.length
+                    raise ArgumentError, "wrong number of arguments (#{v.length} for #{nargs.length})"
+                  elsif !v.zip(nargs).all? { |ec| e, c = ec; e.is_a? c }
+                    raise TypeError, "wrong argument type #{v.map(&:class)} (expected #{nargs})"
+                  else
+                    merge(sym => v)
+                  end
+                when Class
+                  if v.length != 1
+                    raise ArgumentError, "wrong number of arguments (#{v.length} for 1)"
+                  elsif v.first.is_a?(nargs)
+                    merge(sym => v.first)
+                  else
+                    raise TypeError, "wrong argument type #{v.first.class.to_s} (expected #{nargs.to_s})"
+                  end
+                else
+                  # Should not happen
+                  raise ArgumentError, "invalid option specification"
+                end
               end
             end
           end

@@ -16,7 +16,7 @@ require 'option_initializer'
 class Person
   include OptionInitializer
 
-  option_initializer :id, :name, :greetings => :block, :birthday => 1..3
+  option_initializer :id, :name => String, :greetings => :&, :birthday => 1..3
 
   option_validator :name do |v|
     raise ArgumentError, "invalid name" if v.empty?
@@ -61,3 +61,47 @@ Person.
   say_hello
 ```
 
+## Option definitions and validators
+
+```ruby
+class MyClass
+  include OptionInitializer
+
+  option_initializer :a,                             # Single object of any type
+                     :b => 2,                        # Two objects of any type
+                     :c => 1..3,                     # 1, 2, or 3 objects of any type
+                     :d => :*,                       # Any number of objects of any type
+                     :e => :&,                       # Block
+                     :f => Fixnum,                   # Single Fixnum object
+                     :g => [Fixnum, String, Symbol]  # Fixnum, String, and Symbol
+
+  # Validator for :f
+  option_validator :f do |v|
+    raise ArgumentError if v < 0
+  end
+
+  # Generic validator
+  option_validator do |k, v|
+    case k
+    when :a
+      # ...
+    when :b
+      # ...
+    else
+    end
+  end
+
+  def initialize options
+    validate_options options
+    @options = options
+  end
+end
+
+object = MyClass.a(o).
+                 b(o1, o2),
+                 c(o1, o2, o3).
+                 d(o1, o2).
+                 e { |o| o ** o }.
+                 f(f).
+                 g(f, str, sym).new
+```

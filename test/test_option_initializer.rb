@@ -8,7 +8,7 @@ class MyClass
   include OptionInitializer
   option_initializer :aaa, :bbb => 1
   option_initializer :ccc, :ddd
-  option_initializer :ccc, :ddd => :block
+  option_initializer :ccc, :ddd => :&
 
   attr_reader :a, :b, :options, :y
 
@@ -90,7 +90,8 @@ class MyClass4
   option_initializer :two => 2,
                      :two_or_three => 2..3,
                      :yet_two_or_three => 2...4,
-                     :b => :block
+                     :b => :&,
+                     :v => :*
 
   def initialize options
     validate_options @options = options
@@ -101,10 +102,21 @@ class MyClass5
   include OptionInitializer
 end
 
+class MyClassWithTypes
+  include OptionInitializer
+  option_initializer :a => Fixnum,
+                     :b => String,
+                     :c => Numeric,
+                     :d => Array,
+                     :e => [Fixnum, String, Array]
+end
+
 # Excerpt from README
 class Person
   include OptionInitializer
-  option_initializer! :id, :name, :greetings => :block, :birthday => 1..3
+
+  option_initializer! :id, :name => String, :greetings => :&, :birthday => 1..3
+
   option_validator :name do |v|
     raise ArgumentError, "invalid name" if v.empty?
   end
@@ -196,14 +208,14 @@ class TestOptionInitializer < MiniTest::Unit::TestCase
     assert_raises(TypeError) { MyClass2.new 'str' }
   end
 
-  # def assert_raises x, &b
-  #   begin
-  #     b.call
-  #   rescue Exception => e
-  #     puts "#{e.class.to_s}: #{e}"
-  #     assert e.is_a?(x)
-  #   end
-  # end
+  def assert_raises x, &b
+    begin
+      b.call
+    rescue Exception => e
+      puts "#{e.class.to_s}: #{e}"
+      assert e.is_a?(x)
+    end
+  end
 
   def test_varargs
     obj = MyClass4.two(1, 2).two_or_three(2, 3, 4).yet_two_or_three(3, 4, 5).b { :r }.new
@@ -220,9 +232,11 @@ class TestOptionInitializer < MiniTest::Unit::TestCase
     assert_raises(TypeError) { MyClass4.b(1) }
     assert_raises(ArgumentError) { MyClass4.b(1) {} }
     assert_raises(ArgumentError) { MyClass4.b(1) {} }
+    assert_equal [], MyClass4.v.new.options[:v]
+    assert_equal [1, 2, 3], MyClass4.v(1, 2, 3).new.options[:v]
 
     MyClass4.class_eval do
-      option_initializer :b2 => :block
+      option_initializer :b2 => :&
     end
     MyClass4.b2 {}
     assert_raises(TypeError) { MyClass4.b2(5) }
@@ -251,7 +265,7 @@ class TestOptionInitializer < MiniTest::Unit::TestCase
     assert_raises(ArgumentError) { MyClass5.class_eval { option_initializer :b => 0 } }
     assert_raises(ArgumentError) { MyClass5.class_eval { option_initializer :b => 3.14 } }
     assert_raises(ArgumentError) { MyClass5.class_eval { option_initializer :b => [1] } }
-    assert_raises(ArgumentError) { MyClass5.class_eval { option_initializer :b => 0..3 } }
+    assert_raises(ArgumentError) { MyClass5.class_eval { option_initializer :b => -1..3 } }
     assert_raises(ArgumentError) { MyClass5.class_eval { option_initializer 3.14 } }
     assert_raises(ArgumentError) { MyClass5.class_eval { option_initializer 3.14 => nil } }
     assert_raises(ArgumentError) { MyClass5.class_eval { option_initializer :b => :block? } }
@@ -264,6 +278,23 @@ class TestOptionInitializer < MiniTest::Unit::TestCase
     assert_raises(ArgumentError) { MyClass5.class_eval { option_validator :aaa do |k, v| end } }
   end
 
+  def test_typed_option
+    MyClassWithTypes.a(3)
+    assert_raises(TypeError) { MyClassWithTypes.a('str') }
+    assert_raises(TypeError) { MyClassWithTypes.b(1) }
+    assert_raises(ArgumentError) { MyClassWithTypes.c(1, 2) }
+    assert_raises(ArgumentError) { MyClassWithTypes.e(1) }
+    assert_raises(ArgumentError) { MyClassWithTypes.e(1, 'str') }
+    assert_raises(TypeError) { MyClassWithTypes.e(1, 'str', :array) }
+
+    opts = MyClassWithTypes.a(3).b('str').c(1).c(3.14).d([1, 2, 3]).e(1, 'str', [0, 1, 2]).options
+    assert_equal 3, opts[:a]
+    assert_equal 'str', opts[:b]
+    assert_equal 3.14, opts[:c]
+    assert_equal [1, 2, 3], opts[:d]
+    assert_equal [1, 'str', [0, 1, 2]], opts[:e]
+  end
+
   def test_readme
     john = Person.name('John Doe').birthday(1990, 1, 1).
                   greetings { |name| "Hi, I'm #{name}!" }.id(1000).new
@@ -272,6 +303,39 @@ class TestOptionInitializer < MiniTest::Unit::TestCase
                       :greetings => proc { |name| "Hi, I'm #{name}!" }
     Person.name('John Doe').birthday(1990, 1, 1).
            greetings { |name| "Hi, I'm #{name}!" }.id(1000).say_hello
+  end
+end
+
+class MyReadmeClass
+  include OptionInitializer
+
+  option_initializer :a,                             # Single object of any type
+                     :b => 2,                        # Two objects of any type
+                     :c => 1..3,                     # 1, 2, or 3 objects of any type
+                     :d => :*,                       # Any number of objects
+                     :e => :&,                       # Block
+                     :f => Fixnum,                   # Single Fixnum object
+                     :g => [Fixnum, String, Symbol]  # Fixnum, String, and Symbol
+
+  # Validator for :f
+  option_validator :f do |v|
+    raise ArgumentError if v < 0
+  end
+
+  # Generic validator
+  option_validator do |k, v|
+    case k
+    when :a
+      # ...
+    when :b
+      # ...
+    else
+    end
+  end
+
+  def initialize options
+    validate_options options
+    @options = options
   end
 end
 
