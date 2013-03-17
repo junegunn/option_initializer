@@ -91,7 +91,7 @@ class MyClass
     end
   end
 
-  def initialize options
+  def initialize arg1, arg2, options
     validate_options options
     @options = options
   end
@@ -103,5 +103,6 @@ object = MyClass.a(o).
                  d(o1, o2).
                  e { |o| o ** o }.
                  f(f).
-                 g(f, str, sym).new
+                 g(f, str, sym).
+                 new(a1, a2)
 ```
