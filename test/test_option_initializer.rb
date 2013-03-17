@@ -1,6 +1,8 @@
 $VERBOSE = true
 
 require 'rubygems'
+require 'simplecov'
+SimpleCov.start
 require 'minitest/autorun'
 require 'option_initializer'
 
@@ -83,7 +85,7 @@ class MyClass3
   end
 end
 
-class MyClass4
+class MyClassVarArgs
   attr_reader :options
 
   include OptionInitializer
@@ -109,6 +111,12 @@ class MyClassWithTypes
                      :c => Numeric,
                      :d => Array,
                      :e => [Fixnum, String, Array]
+
+  attr_reader :options
+  def initialize options
+    validate_options options
+    @options = options
+  end
 end
 
 # Excerpt from README
@@ -208,51 +216,52 @@ class TestOptionInitializer < MiniTest::Unit::TestCase
     assert_raises(TypeError) { MyClass2.new 'str' }
   end
 
-  def assert_raises x, &b
-    begin
-      b.call
-    rescue Exception => e
-      puts "#{e.class.to_s}: #{e}"
-      assert e.is_a?(x)
-    end
-  end
-
   def test_varargs
-    obj = MyClass4.two(1, 2).two_or_three(2, 3, 4).yet_two_or_three(3, 4, 5).b { :r }.new
+    obj = MyClassVarArgs.two(1, 2).two_or_three(2, 3, 4).yet_two_or_three(3, 4, 5).b { :r }.new
     assert_equal [1, 2], obj.options[:two]
     assert_equal [2, 3, 4], obj.options[:two_or_three]
     assert_equal [3, 4, 5], obj.options[:yet_two_or_three]
     assert_equal :r, obj.options[:b].call
-    assert_raises(ArgumentError) { MyClass4.two(1) }
-    assert_raises(ArgumentError) { MyClass4.two(1, 2) { } }
-    assert_raises(ArgumentError) { MyClass4.two { } }
-    assert_raises(ArgumentError) { MyClass4.two_or_three(1) }
-    assert_raises(ArgumentError) { MyClass4.yet_two_or_three(1, 2, 3, 4) }
-    assert_raises(ArgumentError) { MyClass4.yet_two_or_three {} }
-    assert_raises(TypeError) { MyClass4.b(1) }
-    assert_raises(ArgumentError) { MyClass4.b(1) {} }
-    assert_raises(ArgumentError) { MyClass4.b(1) {} }
-    assert_equal [], MyClass4.v.new.options[:v]
-    assert_equal [1, 2, 3], MyClass4.v(1, 2, 3).new.options[:v]
+    assert_raises(ArgumentError) { MyClassVarArgs.two }
+    assert_raises(ArgumentError) { MyClassVarArgs.two(1) }
+    assert_raises(ArgumentError) { MyClassVarArgs.two(1, 2) { } }
+    assert_raises(ArgumentError) { MyClassVarArgs.two { } }
+    assert_raises(ArgumentError) { MyClassVarArgs.two_or_three(1) }
+    assert_raises(ArgumentError) { MyClassVarArgs.yet_two_or_three(1, 2, 3, 4) }
+    assert_raises(ArgumentError) { MyClassVarArgs.yet_two_or_three {} }
+    assert_raises(ArgumentError) { MyClassVarArgs.b(1) }
+    assert_raises(ArgumentError) { MyClassVarArgs.b(1) {} }
+    assert_raises(ArgumentError) { MyClassVarArgs.b(1) {} }
+    assert_equal [], MyClassVarArgs.v.new.options[:v]
+    assert_equal [1, 2, 3], MyClassVarArgs.v(1, 2, 3).new.options[:v]
 
-    MyClass4.class_eval do
+    MyClassVarArgs.class_eval do
       option_initializer :b2 => :&
     end
-    MyClass4.b2 {}
-    assert_raises(TypeError) { MyClass4.b2(5) }
+    MyClassVarArgs.b2 {}
+    assert_raises(ArgumentError) { MyClassVarArgs.b2(5) }
 
-    MyClass4.class_eval do
+    MyClassVarArgs.class_eval do
       option_initializer :b2
     end
-    MyClass4.b2(5)
-    assert_raises(ArgumentError) { MyClass4.b2 {} }
+    MyClassVarArgs.b2(5)
+    assert_raises(ArgumentError) { MyClassVarArgs.b2 {} }
   end
 
   def test_varargs_validate_options
-    assert_raises(TypeError) { MyClass4.new(:b => 1) }
-    assert_raises(ArgumentError) { MyClass4.new(:two_or_three => 1) }
-    assert_raises(ArgumentError) { MyClass4.new(:two_or_three => [1]) }
-    assert_raises(ArgumentError) { MyClass4.new(:yet_two_or_three => [1]) }
+    assert_raises(TypeError) { MyClassVarArgs.new(:b => 1) }
+    assert_raises(ArgumentError) { MyClassVarArgs.new(:two => 1) }
+    assert_raises(ArgumentError) { MyClassVarArgs.new(:two => [1]) }
+    assert_raises(ArgumentError) { MyClassVarArgs.new(:two_or_three => 1) }
+    assert_raises(ArgumentError) { MyClassVarArgs.new(:two_or_three => [1]) }
+    assert_raises(ArgumentError) { MyClassVarArgs.new(:yet_two_or_three => [1]) }
+    assert_raises(ArgumentError) { MyClassVarArgs.new(:v => 1) }
+
+    opts = MyClassVarArgs.new(:two => [1, 2], :two_or_three => [2, 3, 4], :v => []).options
+
+    assert_equal [1, 2], opts[:two]
+    assert_equal [2, 3, 4], opts[:two_or_three]
+    assert_equal [], opts[:v]
   end
 
   def test_varargs_def
@@ -287,12 +296,23 @@ class TestOptionInitializer < MiniTest::Unit::TestCase
     assert_raises(ArgumentError) { MyClassWithTypes.e(1, 'str') }
     assert_raises(TypeError) { MyClassWithTypes.e(1, 'str', :array) }
 
-    opts = MyClassWithTypes.a(3).b('str').c(1).c(3.14).d([1, 2, 3]).e(1, 'str', [0, 1, 2]).options
-    assert_equal 3, opts[:a]
-    assert_equal 'str', opts[:b]
-    assert_equal 3.14, opts[:c]
-    assert_equal [1, 2, 3], opts[:d]
-    assert_equal [1, 'str', [0, 1, 2]], opts[:e]
+
+    assert_raises(TypeError) { MyClassWithTypes.new(:a => 'str') }
+    assert_raises(ArgumentError) { MyClassWithTypes.new(:e => :e) }
+    assert_raises(ArgumentError) { MyClassWithTypes.new(:e => []) }
+    assert_raises(TypeError) { MyClassWithTypes.new(:e => [1, 1, 1]) }
+
+    [
+      MyClassWithTypes.a(3).b('str').c(1).c(3.14).d([1, 2, 3]).e(1, 'str', [0, 1, 2]).options,
+      MyClassWithTypes.new(:a => 3, :b => 'str', :c => 3.14, :d => [1, 2, 3], :e => [1, 'str', [0, 1, 2]]).options
+    ].each do |opts|
+      assert_equal 3, opts[:a]
+      assert_equal 'str', opts[:b]
+      assert_equal 3.14, opts[:c]
+      assert_equal [1, 2, 3], opts[:d]
+      assert_equal [1, 'str', [0, 1, 2]], opts[:e]
+
+    end
   end
 
   def test_readme
