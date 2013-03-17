@@ -108,7 +108,7 @@ module OptionInitializer
         pairs = syms.inject([]) { |arr, sym|
           case sym
           when Symbol, String
-            arr << [sym.to_sym, nil]
+            arr << [sym.to_sym, 1]
           when Hash
             arr.concat sym.map { |k, v|
               unless (v.is_a?(Fixnum) && v > 0) || (v.is_a?(Range) && v.begin > 0) || v == :block
@@ -184,16 +184,6 @@ module OptionInitializer
                   end
                 else
                   raise TypeError, "wrong argument type #{v.first.class.to_s} (expected Proc)"
-                end
-              when nil
-                if b && v.empty?
-                  merge(sym => b)
-                elsif b && !v.empty?
-                  raise ArgumentError, "wrong number of arguments (#{v.length} for 0 when block given)"
-                elsif v.length == 1
-                  merge(sym => v.first)
-                else
-                  raise ArgumentError, "wrong number of arguments (#{v.length} for 1)"
                 end
               when 1
                 if b
