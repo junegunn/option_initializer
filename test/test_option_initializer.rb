@@ -6,7 +6,7 @@ require 'option_initializer'
 
 class MyClass
   include OptionInitializer
-  option_initializer :aaa, :bbb
+  option_initializer :aaa, :bbb => 1
   option_initializer :ccc, :ddd
   option_initializer :ccc, :ddd
 
@@ -145,6 +145,16 @@ class TestOptionInitializer < MiniTest::Unit::TestCase
     assert_raises(ArgumentError) { MyClass.aaa(1, 2) }
     assert_raises(ArgumentError) { MyClass.aaa(1).new(1) }
     assert_raises(ArgumentError) { MyClass.aaa(1).new(1, 2, 3) }
+  end
+
+  def test_empty_spec
+    # All allowed
+    MyClass.aaa(1)
+    MyClass.aaa { }
+
+    # No block please
+    MyClass.bbb(1)
+    assert_raises(ArgumentError) { MyClass.bbb { } }
   end
 
   def test_method_missing
