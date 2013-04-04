@@ -158,7 +158,7 @@ module OptionInitializer
               when Set
                 raise ArgumentError, "empty set of values specified for #{k}" if v.length == 0
               when Array
-                unless v.all? { |e| [Class, Set, ClassMatch].any? { |k| e.is_a?(k) } }
+                unless v.all? { |e| [Class, Set, ClassMatch].any? { |kl| e.is_a?(kl) } }
                   raise ArgumentError, "invalid option definition: `#{v}'"
                 end
               when Class, :*, :&
