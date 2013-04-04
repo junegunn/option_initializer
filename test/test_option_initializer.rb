@@ -122,6 +122,19 @@ class MyClassWithTypes
   end
 end
 
+class MyClassWithClassOrOperator
+  include OptionInitializer
+  option_initializer :a => Fixnum | Float | Range,
+                     :b => String,
+                     :c => [String | Symbol, Numeric]
+
+  attr_reader :options
+  def initialize options
+    validate_options options
+    @options = options
+  end
+end
+
 # Excerpt from README
 class Person
   include OptionInitializer
@@ -355,6 +368,21 @@ class TestOptionInitializer < MiniTest::Unit::TestCase
                       :greetings => proc { |name| "Hi, I'm #{name}!" }
     Person.name('John Doe').birthday(1990, 1, 1).
            greetings { |name| "Hi, I'm #{name}!" }.id(1000).say_hello
+  end
+
+  def test_disjunctive_class
+    init = MyClassWithClassOrOperator.a(1).a(1..2).a(3.14).b('hello').c(:hello, 100)
+    [init, init.new].each do |obj|
+      assert_equal 3.14, obj.options[:a]
+      assert_equal 'hello', obj.options[:b]
+      assert_equal [:hello, 100], obj.options[:c]
+    end
+    assert_raises(TypeError) { MyClassWithClassOrOperator.a(:hello) }
+    assert_raises(TypeError) { MyClassWithClassOrOperator.b(1) }
+    assert_raises(TypeError) { MyClassWithClassOrOperator.c(1, 1) }
+    assert_raises(TypeError) { MyClassWithClassOrOperator.new(:a => :hello) }
+    assert_raises(TypeError) { MyClassWithClassOrOperator.new(:b => 1) }
+    assert_raises(TypeError) { MyClassWithClassOrOperator.new(:c => [1, 1]) }
   end
 end
 

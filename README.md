@@ -78,7 +78,7 @@ class MyClass
                      :c => 1..3,                      # 1, 2, or 3 objects of any type
                      :d => :*,                        # Any number of objects of any type
                      :e => :&,                        # Block
-                     :f => Fixnum,                    # Single Fixnum object
+                     :f => Fixnum | Range,            # Single Fixnum or Range object
                      :g => [Fixnum, String, Symbol],  # Fixnum, String, and Symbol
                      :h => Set[true, false],          # Value must be either true or false
                      :i => [Fixnum, Set[true, false]] # Fixnum and boolean

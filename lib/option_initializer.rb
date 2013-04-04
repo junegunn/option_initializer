@@ -1,7 +1,43 @@
 require 'option_initializer/version'
 require 'set'
 
+unless Class.respond_to?(:|)
+  class Class
+    def | other_class
+      unless other_class.is_a?(Class)
+        raise TypeError, "wrong argument type (expected: Class)"
+      end
+      OptionInitializer::ClassMatch.new(self, other_class)
+    end
+  end
+else
+  Kernel.warn "Class already has `|' method. OptionInitializer will not override its behavior."
+end
+
 module OptionInitializer
+  class ClassMatch
+    def initialize *classes
+      @classes = Set[*classes]
+    end
+
+    def | other_class
+      unless other_class.is_a?(Class)
+        raise TypeError, "wrong argument type (expected: Class)"
+      end
+      ClassMatch.new(*@classes.union([other_class]))
+    end
+
+    def match object
+      @classes.any? { |k| object.is_a? k }
+    end
+
+    def to_s
+      a = @classes.map(&:to_s)
+      [a[0...-1].join(', '), a.last].reject(&:empty?).join(', or ')
+    end
+  end
+
+  # @private
   class OptionInitializingTemplate
     attr_reader :options
     alias to_h options
@@ -52,6 +88,7 @@ module OptionInitializer
     end
   end
 
+  # @private
   module MethodCallShortcut
     def method_missing sym, *args, &block
       # 1.8
@@ -79,6 +116,7 @@ module OptionInitializer
     options
   end
 
+  # @private
   def self.included base
     unless base.constants.map(&:to_sym).include?(:OptionInitializing)
       base.const_set :OptionInitializing, oi = OptionInitializingTemplate.dup
@@ -120,8 +158,12 @@ module OptionInitializer
               when Set
                 raise ArgumentError, "empty set of values specified for #{k}" if v.length == 0
               when Array
-                raise ArgumentError, "invalid option definition: `#{v}'" unless v.all? { |e| e.is_a?(Class) || e.is_a?(Set) }
+                unless v.all? { |e| [Class, Set, ClassMatch].any? { |k| e.is_a?(k) } }
+                  raise ArgumentError, "invalid option definition: `#{v}'"
+                end
               when Class, :*, :&
+                # noop
+              when ClassMatch
                 # noop
               else
                 raise ArgumentError, "invalid option definition: `#{v}'"
@@ -191,6 +233,10 @@ module OptionInitializer
                     unless c.include?(e)
                       raise ArgumentError, "invalid option value: `#{e}' (expected one of #{c.to_a.inspect})"
                     end
+                  when ClassMatch
+                    unless c.match e
+                      raise TypeError, "wrong argument type #{e.class} (expected #{c})"
+                    end
                   end
                 end
               end
@@ -198,6 +244,12 @@ module OptionInitializer
           when Class
             vals[sym] = proc { |v|
               if !v.is_a?(nargs)
+                raise TypeError, "wrong argument type #{v.class} (expected #{nargs})"
+              end
+            }
+          when ClassMatch
+            vals[sym] = proc { |v|
+              unless nargs.match v
                 raise TypeError, "wrong argument type #{v.class} (expected #{nargs})"
               end
             }
@@ -234,7 +286,7 @@ module OptionInitializer
                 raise ArgumentError, "block not expected"
               else
                 case nargs
-                when 1, Class, Set
+                when 1, Class, Set, ClassMatch
                   if v.length == 1
                     merge(sym => v.first)
                   else
