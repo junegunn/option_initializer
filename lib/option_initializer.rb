@@ -14,6 +14,57 @@ else
   Kernel.warn "Class already has `|' method. OptionInitializer will not override its behavior."
 end
 
+# @private
+class OptionInitializingTemplate
+  attr_reader :options
+  alias to_h options
+
+  def initialize base, options, need_validation
+    validate options if need_validation
+    @base    = base
+    @options = options
+  end
+
+  def new *args, &block
+    args = args.dup
+    opts = @options
+
+    # Convention. Deal with it.
+    if args.last.is_a?(Hash)
+      validate args.last
+      opts = opts.merge(args.last)
+      args.pop
+    else
+      opts = opts.dup
+    end
+
+    opts.instance_eval do
+      def option_validated?
+        true
+      end
+    end
+    args << opts
+
+    @base.new(*args, &block)
+  end
+
+  def merge opts
+    validate opts
+    self.class.new @base, @options.merge(opts), false
+  end
+
+  def validate hash
+    avals, vals = [:ARG_VALIDATORS, :VALIDATORS].map { |s|
+      self.class.const_get(s)
+    }
+    hash.each do |k, v|
+      avals[k]  && avals[k].call(v)
+      vals[k]   && vals[k].call(v)
+      vals[nil] && vals[nil].call(k, v)
+    end
+  end
+end
+
 module OptionInitializer
   class ClassMatch
     def initialize *classes
@@ -34,57 +85,6 @@ module OptionInitializer
     def to_s
       a = @classes.map(&:to_s)
       [a[0...-1].join(', '), a.last].reject(&:empty?).join(', or ')
-    end
-  end
-
-  # @private
-  class OptionInitializingTemplate
-    attr_reader :options
-    alias to_h options
-
-    def initialize base, options, need_validation
-      validate options if need_validation
-      @base    = base
-      @options = options
-    end
-
-    def new *args, &block
-      args = args.dup
-      opts = @options
-
-      # Convention. Deal with it.
-      if args.last.is_a?(Hash)
-        validate args.last
-        opts = opts.merge(args.last)
-        args.pop
-      else
-        opts = opts.dup
-      end
-
-      opts.instance_eval do
-        def option_validated?
-          true
-        end
-      end
-      args << opts
-
-      @base.new(*args, &block)
-    end
-
-    def merge opts
-      validate opts
-      self.class.new @base, @options.merge(opts), false
-    end
-
-    def validate hash
-      avals, vals = [:ARG_VALIDATORS, :VALIDATORS].map { |s|
-        self.class.const_get(s)
-      }
-      hash.each do |k, v|
-        avals[k]  && avals[k].call(v)
-        vals[k]   && vals[k].call(v)
-        vals[nil] && vals[nil].call(k, v)
-      end
     end
   end
 
